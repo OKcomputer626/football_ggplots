@@ -1,0 +1,373 @@
+---
+title: "LAFC Age Utility 2022"
+author: "Andres Gonzalez"
+date: "1/11/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Packages
+```{r, message=FALSE, warning=FALSE}
+pacman::p_load(tidyverse, polite, scales, ggimage, rvest, 
+               glue, extrafont, showtext, ggrepel, magick, 
+               ggforce, lubridate, cowplot, patchwork, rlang)
+library(ggtext)
+loadfonts()
+```
+
+
+# functions
+
+## add_logo functions
+
+```{r}
+add_logo <- function(plot_path, logo_path, logo_position, logo_scale = 10){
+  # Requires magick R Package https://github.com/ropensci/magick
+  # Useful error message for logo position
+  if (!logo_position %in% c("top right", "top left", "bottom right", "bottom left")) {
+    stop("Error Message: Uh oh! Logo Position not recognized\n  Try: logo_positon = 'top left', 'top right', 'bottom left', or 'bottom right'")
+  }
+  # read in raw images
+  plot <- magick::image_read(plot_path)
+  logo_raw <- magick::image_read(logo_path)
+  # get dimensions of plot for scaling
+  plot_height <- magick::image_info(plot)$height
+  plot_width <- magick::image_info(plot)$width
+  # default scale to 1/10th width of plot
+  # Can change with logo_scale
+  logo <- magick::image_scale(logo_raw, as.character(plot_width/logo_scale))
+  # Get width of logo
+  logo_width <- magick::image_info(logo)$width
+  logo_height <- magick::image_info(logo)$height
+  # Set position of logo
+  # Position starts at 0,0 at top left
+  # Using 0.01 for 1% - aesthetic padding
+  if (logo_position == "top right") {
+    x_pos = plot_width - logo_width - 0.01 * plot_width
+    y_pos = 0.01 * plot_height
+  } else if (logo_position == "top left") {
+    x_pos = 0.01 * plot_width
+    y_pos = 0.01 * plot_height
+  } else if (logo_position == "bottom right") {
+    x_pos = plot_width - logo_width - 0.01 * plot_width
+    y_pos = plot_height - logo_height - 0.01 * plot_height
+  } else if (logo_position == "bottom left") {
+    x_pos = 0.01 * plot_width
+    y_pos = plot_height - logo_height - 0.01 * plot_height
+  }
+  # Compose the actual overlay
+  magick::image_composite(plot, logo, offset = paste0("+", x_pos, "+", y_pos))
+}
+```
+
+
+# Los Angeles Football Club
+
+## Scrape Arsenal FC
+
+```{r}
+page1 <- "https://www.transfermarkt.us/los-angeles-fc/leistungsdaten/verein/51828/plus/0?reldata=MLS1%262020"
+
+scraped_page <- read_html(page1)
+
+# grab name from photo element instead
+PlayerNames  <- scraped_page %>% html_nodes("#yw1 .bilderrahmen-fixed") %>% html_attr("title")
+
+# grab age
+age <- scraped_page %>% html_nodes(".posrela+ .zentriert") %>% html_text()
+
+# grab minutes played in league
+minutes <- scraped_page %>% html_nodes("td.rechts") %>% html_text()
+```
+
+
+## Scrape length
+
+```{r}
+page <- "https://www.transfermarkt.us/los-angeles-fc/kader/verein/51828/plus/1/galerie/0?saison_id=2020"
+
+scraped_page <- read_html(page)
+
+# grab name from photo element instead
+PlayerNames2  <- scraped_page %>% html_nodes("#yw1 .bilderrahmen-fixed") %>% html_attr("title")
+
+# grab player birthday
+bday <- scraped_page %>% html_nodes(".posrela+ .zentriert") %>% html_text()
+
+# grab joined team
+joinedteam <- scraped_page %>% html_nodes("td:nth-child(8)") %>% html_text()
+
+# grab leave team
+leaveteam <- scraped_page %>% html_nodes("td:nth-child(10)") %>% html_text()
+```
+
+
+## Clean LAFC
+
+```{r}
+# place each vector into list
+resultados <- list(PlayerNames, age, minutes)
+
+col_name <- c("name", "age", "minutes")
+
+results_comb <- resultados %>% 
+  reduce(cbind) %>% 
+  as_tibble() %>%
+  set_names(col_name)
+
+## join + bday
+resultados2 <- list(PlayerNames2, bday, 
+                    joinedteam, leaveteam)
+
+col_name2 <- c("name", "bday", "join", "leave")
+
+results_comb2 <- resultados2 %>% 
+  reduce(cbind) %>% 
+  as_tibble() %>%
+  set_names(col_name2)
+
+## combine BOTH
+lafc_comb <- results_comb %>%
+  left_join(results_comb2, by="name")
+
+# fix "strings" into proper formats, calculate % of minutes appeared
+lafc <- lafc_comb %>%
+  mutate(age = as.numeric(age),
+         minutes = minutes %>%
+           str_replace_all(c("\\." = "","'"="")) %>%
+           as.numeric(),
+         minutes_perc = (minutes / 3060) %>%
+           round(digits = 3),
+         bday = bday %>%
+           str_replace("\\(.*\\)","") %>%
+           mdy(),
+         join = join %>% mdy(),
+         join_age = case_when(
+           name == "Cristian Arango" ~ 26.2,
+           name == "Jamal Blackman" ~ 27.8,
+           name == "Sebastien Ibeagha" ~ 19.4,
+           name == "Danny Crisostomo" ~ 24.4,
+           name == "Michee Ngalina" ~ 21.3,
+           TRUE ~ interval(bday, join) / years(1)),
+         age_now = case_when(
+           TRUE ~ interval(bday, Sys.Date()) / years(1)),
+         duration = age_now - join_age) %>%
+  filter(!is.na(minutes)) %>%
+  separate(name, into = c("first_name", "last_name"), 
+           sep = " ", fill = "left") %>%
+  mutate(fname = if_else(!is.na(first_name), 
+                  str_extract(first_name, "[A-Z]{1}"),
+                  ""),
+         player = case_when(
+           !is.na(first_name) ~ glue("{fname}. {last_name}"),
+           TRUE ~ last_name),
+         team_name = "LAFC") %>%
+  arrange(desc(minutes_perc))
+```
+
+
+## Plot Arsenal FC
+
+"Peak Age"
+
+```{r fig.height=8, fig.width=12}
+# rectanglular highlight for players in their prime:
+rect_df <- data.frame(
+  xmin = 25, xmax = 29,
+  ymin = -Inf, ymax = Inf
+)
+
+lafc_plot <- lafc %>% 
+    ggplot(aes(x = age_now, y = minutes_perc)) +
+    geom_vline(xintercept = 25, alpha = 0.4, color = "grey20") +
+    geom_hline(yintercept = 0.5, alpha = 0.4, color = "grey20") +
+    geom_rect(data = rect_df,
+              aes(x = NULL, y = NULL,
+                  xmin = xmin, xmax = xmax,
+                  ymin = ymin, ymax = ymax),
+              fill = "#c39e6d", alpha = 0.7) +
+    geom_link(aes(x = join_age, xend = age_now,
+                  y = minutes_perc, yend = minutes_perc,
+                  alpha = stat(index)), 
+              color = "#000000", size = 1.5) + 
+    geom_point(aes(x = age_now), color = "#e31837", size = 3.5) +
+    geom_text_repel(
+      aes(label = player),
+      nudge_y = 0.01,
+      seed = 6) + 
+    annotate("text", x = 27, y = 1.055,
+             size = 5.5, fontface = "bold",
+             family = "Rockwell",
+             label = "Peak Years", color = "grey20") +
+    scale_y_continuous(
+      expand = c(0.01, 0),
+      limits = c(0, 1.08), 
+      breaks = seq(0, 1, by = 0.2), 
+      labels = percent_format()) +
+    scale_x_continuous(
+      limits = c(17, 33),
+      breaks = seq(18, 34, by = 2)) +
+    labs(
+      x = "Age", 
+      y = "Minutes Played (%)",  
+      title = "<span style = 'color: #c39e6d' > Los Angeles Football Club </span> | Squad Age Profile",
+      subtitle = "Major League Soccer 2021 (100% = 3060 total Minutes)") +
+    theme_bw() +
+    theme(
+      text = element_text(family = "Rockwell"),
+      plot.background = element_rect(fill = "#000000"),
+      panel.background = element_rect(fill = "white"),
+      panel.border = element_blank(),
+      plot.title = element_markdown(color = "white", size = 20, face = "bold"),
+      plot.subtitle = element_text(color = "white", size = 18),
+      plot.caption = element_text(size = 14),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(color = "white"),
+      axis.title.y = element_text(color = "white", vjust= 0.5),
+      axis.title = element_text(color = "white", size = 16),
+      axis.text = element_text(color = "white", size = 14),
+      axis.ticks = element_blank(),
+      legend.position = "none")
+  
+lafc_plot
+```
+
+
+## legend plot
+
+```{r fig.width=3, fig.height=5}
+leg_df <- tibble(x = 23, xend = 28,
+                 y = 0.65, yend = 0.65)
+
+legend_plot <- lafc %>% 
+  ggplot(aes(x = age_now, y = minutes_perc)) +
+  geom_rect(data = rect_df,
+            aes(x = NULL, y = NULL,
+                xmin = xmin, xmax = xmax,
+                ymin = ymin, ymax = ymax),
+            fill = "#c39e6d", alpha = 0.4) +
+  geom_link(data = leg_df,
+            aes(x = x, xend = xend,
+                y = y, yend = yend,
+                alpha = stat(index)), 
+            color = "#000000", size = 1.75) + 
+  geom_point(x = 28, y = 0.65, color = "#e31837", size = 3.5) +
+  ## top arrow
+  geom_curve(x = 30, xend = 28.4,
+             y = 0.77, yend = 0.65,
+             curvature = -0.5, size = 1.2,
+             arrow = arrow(length = unit(0.1, "inches")),
+             lineend = "round") +
+  ## bottom arrow
+  geom_segment(x = 23, xend = 23,
+               y = 0.48, yend = 0.63,
+               size = 1.2,
+               arrow = arrow(length = unit(0.1, "inches")),
+               lineend = "round") +
+  annotate("text", x = 30, y = 0.83, family = "Rockwell",
+           label = "Age Now", size = 4.5) +
+  annotate("text", x = 23, y = 0.4, family = "Rockwell",
+           label = "Age Joined", size = 4.5) +
+  scale_y_continuous(
+    limits = c(0, 1.05), 
+    breaks = seq(0, 1, by = 0.2),
+    labels = percent_format()) +
+  scale_x_continuous(
+    limits = c(18, 33),
+    breaks = seq(18, 34, by = 2)) +
+  labs(caption = glue("
+                   Data: transfermarkt.com
+                   inpsired by @R_by_Ryo
+                 Twitter: @Gonzalez_afc")) +
+  theme_void() +
+  theme(
+    text = element_text(family = "Rockwell"),
+    plot.background = element_rect(fill = "#000000"),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_blank(),
+    plot.caption = element_text(color = "white", size = 14),
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_text(color = "white", size = 10),
+    legend.position = "none")
+
+legend_plot
+```
+
+
+## Summary Stats
+
+```{r fig.width=3, fig.height=5}
+lafc %>%
+  summarise(median_age = median(age),
+            median_duration = median(duration),
+            sum_players = n())
+```
+
+```{r fig.width=3, fig.height=5}
+summary_stats <- lafc %>%
+  ggplot(aes(x = age_now, y = minutes_perc)) +
+  annotate("text", x = 25, y = 0.5, 
+           size = 4,
+           label = "
+    Number of Players: 30
+    Median Age: 23
+    Length of Stay: 1.98 Years",
+           family = "Rockwell",
+           color = "white") +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#000000"))
+
+summary_stats
+```
+
+
+## Combine
+
+```{r fig.height=8, fig.width=12}
+lafc_plot +
+  theme(plot.margin = unit(c(1, 10, 1, 1), "cm"))
+
+legend_plot
+```
+
+```{r fig.width=15, fig.height=8}
+ggdraw(plot_grid(lafc_plot, legend_plot, 
+                 rel_heights = c(2, 1)))
+
+ggdraw() +
+  draw_plot(lafc_plot) +
+  draw_plot(legend_plot, hjust = 10, 
+            width = 0.13, height = 0.2)
+
+lafc_final_plot <- ggdraw(lafc_plot +
+         theme(plot.margin = unit(c(1, 10, 1, 1), "cm"))) +
+  draw_plot(legend_plot, .75, 0.05, .2, .3) +
+  draw_plot(summary_stats, 0.75,0.37,0.2,0.3)
+
+lafc_final_plot
+```
+
+
+## Save
+
+```{r}
+ggsave(plot = lafc_final_plot, "C:/Users/16267/Downloads/lafc_age_utility_2021.png",
+       height = 8, width = 15)
+```
+
+```{r}
+plot_logo <- add_logo(plot_path = "C:/Users/16267/Downloads/lafc_age_utility_2021.png",
+                      logo_path = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Los_Angeles_Football_Club.svg/800px-Los_Angeles_Football_Club.svg.png",
+                      logo_position = "top right",
+                      logo_scale = 23)
+```
+
+```{r}
+image_write(image = plot_logo, "C:/Users/16267/Downloads/lafc_age_utility_2021.png")
+```
+

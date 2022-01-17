@@ -1,0 +1,236 @@
+---
+title: "Untitled"
+author: "Andres Gonzalez"
+date: "1/16/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+
+```{r message = FALSE, warning=FALSE}
+library(tidyverse)
+library(nflfastR)
+library(lubridate)
+pacman::p_load(tidyverse, polite, scales, ggimage, rvest, 
+               glue, extrafont, showtext, ggrepel, magick, 
+               ggforce, lubridate, cowplot, patchwork, rlang)
+```
+
+
+# Get Player Data
+
+```{r message=FALSE}
+nfl_pbp <- load_pbp(2021)
+```
+
+```{r}
+# D.Adamas (GB)
+player_id <- "00-0031381"
+player <- "Davante Adams"
+team_color <- "#24423C"
+# C.Kupp (LAR)
+player_id <- "00-0033908"
+player <- "Cooper Kupp"
+team_color <- "#003594"
+# J.Jefferson (MIN)
+player_id <- "00-0033040"
+player <- "Tyreek Hill"
+team_color <- "#E31837"
+# Player Specific
+## 123 receptions matches nfl.com (DA)
+## 145 receptions matches nfl.com (CK)
+## 108 receptions matches nfl.com (JJx)
+player_receptions <- nfl_pbp %>% 
+  # Filter to player and regular season
+  filter(
+    season_type == "REG", 
+    receiver_player_id == player_id,
+    !is.na(receiving_yards)
+  )  %>% 
+  select(
+    game_id, season_type, week,
+    result, success,
+    receiver_player_id, receiver_player_name, receiving_yards,
+    air_yards, yards_after_catch
+  ) %>% 
+  mutate(
+    receiving_yards = case_when(
+      receiving_yards < 0 ~ 0, # Change negative yards to 0
+      receiving_yards > 30 ~ 30, # Group >= 30
+      TRUE ~ receiving_yards
+    )
+  )
+n_receptions <- nrow(player_receptions)
+```
+
+# Data Prep
+
+```{r}
+# Group by distance
+distance_summary <- player_receptions %>% 
+  group_by(receiving_yards) %>% 
+  summarise(
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # For geom_point
+    dummy_0 = 0,
+    bin_size = factor(
+        case_when(
+        n <= 3 ~ "0-3",
+        n <= 7 ~ "4-7",
+        n >= 8 ~ "8+",
+        TRUE ~ "None"
+      ),
+      levels = c("0-3","4-7", "8+")
+    ),
+    curve_size = case_when(
+      n <= 3 ~ .25,
+      n <= 7 ~ .5,
+      n >= 8 ~ 1,
+      TRUE ~ 0
+    )
+  )
+# Median Shot Distance
+med_dist <- round(median(player_receptions$receiving_yards))
+```
+
+
+# Data Viz
+
+```{r}
+p <- ggplot() +
+  scale_y_continuous(limits = c(-.04,1), expand = c(0,0)) +
+  scale_x_continuous(
+    limits = c(0,32),
+    breaks = c(0,10,20,30),
+    labels = c("0 YARDS", "10", "20", "30+")
+  ) +
+  geom_segment(
+    aes(x = med_dist, y = 0, xend = med_dist, yend = 1),
+    color = "#252525",
+    size = .3,
+    linetype = "dashed"
+  ) +
+  geom_hline(
+    aes(yintercept = 0),
+    color = "#252525",
+    size = .9
+  ) +
+  labs(
+    title = glue::glue("{player} Reception Distances"),
+    subtitle = glue::glue("2021 NFL Season: {n_receptions} receptions"),
+    caption = glue("
+                   Data: nflfastR
+                 Twitter: @AndresAnalytics"),
+    x = "",
+    size = "Receptions",
+    y = ""
+  ) +
+  theme_bw() +
+  theme(
+    axis.line = element_blank(),
+    axis.text.y = element_blank(),
+    panel.grid = element_blank()
+  )
+for (row in 1:nrow(distance_summary)) {
+  curve_data <- tibble(
+    distance = distance_summary$receiving_yards[row],
+    curve_size = distance_summary$curve_size[row]
+  )
+  if (curve_data$distance != 0) {
+    p <- p +
+    geom_curve(
+      data = curve_data,
+      aes(
+        x = 0, 
+        y = 0, 
+        xend = distance, 
+        yend = 0
+      ), 
+      colour = team_color, 
+      size = distance_summary$curve_size[row],
+      curvature = -.95
+    )
+  }
+}
+plot1 <- p +
+  geom_point(
+    data = distance_summary,
+    aes(x = receiving_yards, y = dummy_0, size = bin_size),
+    shape = 21,
+    color = "white",
+    fill = team_color,
+    alpha = 1
+  ) +
+  scale_size_discrete(
+    range = c(2,7)
+  )
+
+plot1
+```
+
+
+```{r}
+add_logo <- function(plot_path, logo_path, logo_position, logo_scale = 10){
+  # Requires magick R Package https://github.com/ropensci/magick
+  # Useful error message for logo position
+  if (!logo_position %in% c("top right", "top left", "bottom right", "bottom left")) {
+    stop("Error Message: Uh oh! Logo Position not recognized\n  Try: logo_positon = 'top left', 'top right', 'bottom left', or 'bottom right'")
+  }
+  # read in raw images
+  plot <- magick::image_read(plot_path)
+  logo_raw <- magick::image_read(logo_path)
+  # get dimensions of plot for scaling
+  plot_height <- magick::image_info(plot)$height
+  plot_width <- magick::image_info(plot)$width
+  # default scale to 1/10th width of plot
+  # Can change with logo_scale
+  logo <- magick::image_scale(logo_raw, as.character(plot_width/logo_scale))
+  # Get width of logo
+  logo_width <- magick::image_info(logo)$width
+  logo_height <- magick::image_info(logo)$height
+  # Set position of logo
+  # Position starts at 0,0 at top left
+  # Using 0.01 for 1% - aesthetic padding
+  if (logo_position == "top right") {
+    x_pos = plot_width - logo_width - 0.01 * plot_width
+    y_pos = 0.01 * plot_height
+  } else if (logo_position == "top left") {
+    x_pos = 0.01 * plot_width
+    y_pos = 0.01 * plot_height
+  } else if (logo_position == "bottom right") {
+    x_pos = plot_width - logo_width - 0.01 * plot_width
+    y_pos = plot_height - logo_height - 0.01 * plot_height
+  } else if (logo_position == "bottom left") {
+    x_pos = 0.01 * plot_width
+    y_pos = plot_height - logo_height - 0.01 * plot_height
+  }
+  # Compose the actual overlay
+  magick::image_composite(plot, logo, offset = paste0("+", x_pos, "+", y_pos))
+}
+```
+
+
+
+```{r}
+ggsave(plot = plot1, "/Users/andres_th14/Downloads/tyreek_hill.png",
+       height = 8, width = 15)
+```
+
+```{r}
+plot_logo <- add_logo(plot_path = "/Users/andres_th14/Downloads/tyreek_hill.png",
+                      logo_path = ("https://logos-world.net/wp-content/uploads/2020/05/Kansas-City-Chiefs-Logo-1972-present.png"),
+                      logo_position = "top right",
+                      logo_scale = 23)
+```
+
+
+```{r}
+image_write(image = plot_logo, "/Users/andres_th14/Downloads/tyreek_hill.png")
+```

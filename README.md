@@ -5,6 +5,8 @@
 [![Gmail Follow](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:gonzalez.andrespsg@gmail.com)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGP%20v3-blueviolet)](https://www.gnu.org/licenses/agpl-3.0)
 
+![alt pic](https://www.gemini-us.com/wp-content/uploads/2020/04/sports-Data-Analytics.jpg)
+
 ## Visualization Plots
 
 ### Squad Age Profiles

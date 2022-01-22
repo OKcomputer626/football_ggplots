@@ -9,6 +9,10 @@
 
 ## Visualization Plots
 
+## Premier League Icons
+#### Plot
+![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Premier%20League%20Icons/Output/Thierry%20Henry%20Goals%20and%20Assists.png)
+
 ### Squad Age Profiles
 #### Plot
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Premier%20League%202021-2022/output/arsenal_age_utility_2022.png)

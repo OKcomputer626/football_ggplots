@@ -96,15 +96,15 @@ add_logo <- function(plot_path, logo_path, logo_position, logo_scale = 10){
   magick::image_composite(plot, logo, offset = paste0("+", x_pos, "+", y_pos))
 }
                      
-ggsave(plot = MLS_plot, "/Users/andres_th14/Downloads/MLS_xG_2020_2021.png",
+ggsave(plot = MLS_plot, ".../MLS_xG_2020_2021.png",
        height = 4, width = 6)
 
-plot_logo <- add_logo(plot_path = "/Users/andres_th14/Downloads/MLS_xG_2020_2021.png",
+plot_logo <- add_logo(plot_path = ".../MLS_xG_2020_2021.png",
                       logo_path = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/MLS_crest_logo_Mono_rev_black.svg/424px-MLS_crest_logo_Mono_rev_black.svg.png",
                       logo_position = "top left",
                       logo_scale = 23)
 
-image_write(image = MLS_plot, "/Users/andres_th14/Downloads/MLS_xG_2020_2021.png")
+image_write(image = MLS_plot, ".../MLS_xG_2020_2021.png")
                      
                      
                      

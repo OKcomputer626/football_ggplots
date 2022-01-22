@@ -52,5 +52,5 @@ team_balances %>%
 
 # Save the plot
 ggsave(
-       here::here("C:/Users/16267/Downloads/premierleague_spending.png"),
+       here::here(".../premierleague_spending.png"),
        height = 10, width = 12)

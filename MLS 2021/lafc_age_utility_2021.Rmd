@@ -356,18 +356,18 @@ lafc_final_plot
 ## Save
 
 ```{r}
-ggsave(plot = lafc_final_plot, "C:/Users/16267/Downloads/lafc_age_utility_2021.png",
+ggsave(plot = lafc_final_plot, "..../lafc_age_utility_2021.png",
        height = 8, width = 15)
 ```
 
 ```{r}
-plot_logo <- add_logo(plot_path = "C:/Users/16267/Downloads/lafc_age_utility_2021.png",
+plot_logo <- add_logo(plot_path = "..../lafc_age_utility_2021.png",
                       logo_path = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Los_Angeles_Football_Club.svg/800px-Los_Angeles_Football_Club.svg.png",
                       logo_position = "top right",
                       logo_scale = 23)
 ```
 
 ```{r}
-image_write(image = plot_logo, "C:/Users/16267/Downloads/lafc_age_utility_2021.png")
+image_write(image = plot_logo, "..../lafc_age_utility_2021.png")
 ```
 

@@ -219,12 +219,12 @@ add_logo <- function(plot_path, logo_path, logo_position, logo_scale = 10){
 
 
 ```{r}
-ggsave(plot = plot1, "/Users/andres_th14/Downloads/tyreek_hill.png",
+ggsave(plot = plot1, ".../tyreek_hill.png",
        height = 8, width = 15)
 ```
 
 ```{r}
-plot_logo <- add_logo(plot_path = "/Users/andres_th14/Downloads/tyreek_hill.png",
+plot_logo <- add_logo(plot_path = ".../tyreek_hill.png",
                       logo_path = ("https://logos-world.net/wp-content/uploads/2020/05/Kansas-City-Chiefs-Logo-1972-present.png"),
                       logo_position = "top right",
                       logo_scale = 23)
@@ -232,5 +232,5 @@ plot_logo <- add_logo(plot_path = "/Users/andres_th14/Downloads/tyreek_hill.png"
 
 
 ```{r}
-image_write(image = plot_logo, "/Users/andres_th14/Downloads/tyreek_hill.png")
+image_write(image = plot_logo, ".../tyreek_hill.png")
 ```

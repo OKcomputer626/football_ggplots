@@ -361,18 +361,18 @@ combined_plot
 ## Save
 
 ```{r}
-ggsave(plot = combined_plot, "C:/Users/16267/Downloads/arsenal_age_utility_2022.png",
+ggsave(plot = combined_plot, "..../arsenal_age_utility_2022.png",
        height = 8, width = 15)
 ```
 
 ```{r}
-plot_logo <- add_logo(plot_path = "C:/Users/16267/Downloads/arsenal_age_utility_2022.png",
+plot_logo <- add_logo(plot_path = "..../arsenal_age_utility_2022.png",
                       logo_path = "https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Arsenal_FC.svg/800px-Arsenal_FC.svg.png",
                       logo_position = "top right",
                       logo_scale = 23)
 ```
 
 ```{r}
-image_write(image = plot_logo, "C:/Users/16267/Downloads/arsenal_age_utility_2022.png")
+image_write(image = plot_logo, "..../arsenal_age_utility_2022.png")
 ```
 

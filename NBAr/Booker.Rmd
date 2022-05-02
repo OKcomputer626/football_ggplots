@@ -1,0 +1,273 @@
+---
+title: "Practice"
+output: html_document
+date: '2022-04-22'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+```{r}
+library(tidyverse)
+library(nbastatR)
+library(devtools)
+library(ncaahoopR)
+library(extrafont)
+library(cowplot)
+```
+
+# Creating Court 
+```{r}
+# Creating court and plotting
+circle_points = function(center = c(0, 0), radius = 1, npoints = 360) {
+  angles = seq(0, 2 * pi, length.out = npoints)
+  return(data_frame(x = center[1] + radius * cos(angles),
+                    y = center[2] + radius * sin(angles)))
+}
+# Court Dimensions & lines
+width = 50
+height = 94 / 2
+key_height = 19
+inner_key_width = 12
+outer_key_width = 16
+backboard_width = 6
+backboard_offset = 4
+neck_length = 0.5
+hoop_radius = 0.75
+hoop_center_y = backboard_offset + neck_length + hoop_radius
+three_point_radius = 23.75
+three_point_side_radius = 22
+three_point_side_height = 14
+# Court themes
+court_themes = list(
+  light = list(
+    court = 'floralwhite',
+    lines = '#999999',
+    text = '#222222',
+    made = '#00bfc4',
+    missed = '#f8766d',
+    hex_border_size = 1,
+    hex_border_color = "#000000"
+  ),
+  dark = list(
+    court = '#000004',
+    lines = '#999999',
+    text = '#f0f0f0',
+    made = '#00bfc4',
+    missed = '#f8766d',
+    hex_border_size = 0,
+    hex_border_color = "#000000"
+  ),
+  ppt = list(
+    court = 'gray20',
+    lines = 'white',
+    text = '#f0f0f0',
+    made = '#00bfc4',
+    missed = '#f8766d',
+    hex_border_size = 0,
+    hex_border_color = "gray20"
+)
+)
+# Function to create court based on given dimensions
+plot_court = function(court_theme = court_themes$light, use_short_three = FALSE) {
+  if (use_short_three) {
+    three_point_radius = 22
+    three_point_side_height = 0
+  }
+  
+  court_points = data_frame(
+    x = c(width / 2, width / 2, -width / 2, -width / 2, width / 2),
+    y = c(height, 0, 0, height, height),
+    desc = "perimeter"
+  )
+  
+  court_points = bind_rows(court_points , data_frame(
+    x = c(outer_key_width / 2, outer_key_width / 2, -outer_key_width / 2, -outer_key_width / 2),
+    y = c(0, key_height, key_height, 0),
+    desc = "outer_key"
+  ))
+  
+  court_points = bind_rows(court_points , data_frame(
+    x = c(-backboard_width / 2, backboard_width / 2),
+    y = c(backboard_offset, backboard_offset),
+    desc = "backboard"
+  ))
+  
+  court_points = bind_rows(court_points , data_frame(
+    x = c(0, 0), y = c(backboard_offset, backboard_offset + neck_length), desc = "neck"
+  ))
+  
+  foul_circle = circle_points(center = c(0, key_height), radius = inner_key_width / 2)
+  
+  foul_circle_top = filter(foul_circle, y > key_height) %>%
+    mutate(desc = "foul_circle_top")
+  
+  foul_circle_bottom = filter(foul_circle, y < key_height) %>%
+    mutate(
+      angle = atan((y - key_height) / x) * 180 / pi,
+      angle_group = floor((angle - 5.625) / 11.25),
+      desc = paste0("foul_circle_bottom_", angle_group)
+    ) %>%
+    filter(angle_group %% 2 == 0) %>%
+    select(x, y, desc)
+  
+  hoop = circle_points(center = c(0, hoop_center_y), radius = hoop_radius) %>%
+    mutate(desc = "hoop")
+  
+  restricted = circle_points(center = c(0, hoop_center_y), radius = 4) %>%
+    filter(y >= hoop_center_y) %>%
+    mutate(desc = "restricted")
+  
+  three_point_circle = circle_points(center = c(0, hoop_center_y), radius = three_point_radius) %>%
+    filter(y >= three_point_side_height, y >= hoop_center_y)
+  
+  three_point_line = data_frame(
+    x = c(three_point_side_radius, three_point_side_radius, three_point_circle$x, -three_point_side_radius, -three_point_side_radius),
+    y = c(0, three_point_side_height, three_point_circle$y, three_point_side_height, 0),
+    desc = "three_point_line"
+  )
+  
+  court_points = bind_rows(
+    court_points,
+    foul_circle_top,
+    foul_circle_bottom,
+    hoop,
+    restricted,
+    three_point_line
+  )
+  
+  
+  court_points <- court_points
+  
+  # Final plot creation
+  ggplot() +
+    geom_path(
+      data = court_points,
+      aes(x = x, y = y, group = desc),
+      color = court_theme$lines
+    ) +
+    coord_fixed(ylim = c(0, 45), xlim = c(-25, 25)) +
+    theme_minimal(base_size = 22) +
+    theme(
+      text = element_text(color = court_theme$text),
+      plot.background = element_rect(fill = 'floralwhite', color = 'floralwhite'),
+      panel.background = element_rect(fill = court_theme$court, color = court_theme$court),
+      panel.grid = element_blank(),
+      panel.border = element_blank(),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      legend.background = element_rect(fill = court_theme$court, color = court_theme$court),
+      legend.margin = margin(-1, 0, 0, 0, unit = "lines"),
+      legend.position = "bottom",
+      legend.key = element_blank(),
+      legend.text = element_text(size = rel(1.0))
+    )
+}
+```
+
+# NBA Data Regular Season
+```{r}
+# Grab team names to type into teams_shots function
+nba_teams() %>% filter(isNonNBATeam == 0)
+# Grab team shot data
+suns <- teams_shots(teams = "Phoenix Suns", seasons = 2022, season_types = "Regular Season")
+# Filter shot data for player & clean data to fit court dimensions
+booker_regular <- suns %>%
+  filter(namePlayer=="Devin Booker") %>% 
+  mutate(x = as.numeric(as.character(locationX)) / 10, y = as.numeric(as.character(locationY)) / 10 + hoop_center_y)
+# Horizontally flip the data
+booker_regular$x <- booker_regular$x * -1 
+```
+
+# NBA Chart Regular Season
+```{r}
+p1 <- plot_court(court_themes$light, use_short_three = F) +
+  geom_point(data = booker_regular, aes(x = x, y = y, color = booker_regular$isShotMade, fill = booker_regular$isShotMade), 
+             size = 1.5, shape = 21, stroke = 0.5, alpha = 0.6) +  
+  scale_color_manual(values = c("purple4","red3"), aesthetics = "color", breaks=c("TRUE", "FALSE"), labels=c("Made", "Missed")) +
+  scale_fill_manual(values = c("purple2","floralwhite"), aesthetics = "fill", breaks=c("TRUE", "FALSE"), labels=c("Made", "Missed")) +
+  scale_x_continuous(limits = c(-27.5, 27.5)) +
+  scale_y_continuous(limits = c(0, 45)) +
+  theme(plot.title = element_text(size = 25, family = "Times", face = "bold"),
+        plot.subtitle = element_text(size = 10, family = "Times", face = "bold"),
+        legend.position = c(.5, 0.85),
+        legend.direction = "horizontal",
+        legend.title = element_blank(),
+        legend.text = element_text(hjust = 1, size = 10, family = "Times", face = "bold", colour = "grey30"),
+        plot.caption = element_text(hjust = .5, size = 8, family = "Times", face = "bold", colour = "grey20", vjust = 8)) +
+  ggtitle(label = "Devin Booker",
+          subtitle = "2021-22 Regular Season \n Phoenix Suns") +
+  labs(caption = "Data via nbastatr \n Twitter: @AndresAnalytics")
+ggdraw(p1) + theme(plot.background = element_rect(fill="floralwhite", color = NA)) 
+ggsave("Booker_regular.png", height = 6, width = 6, dpi = 300)
+```
+# NBA Data Playoffs
+```{r}
+# Grab team names to type into teams_shots function
+nba_teams() %>% filter(isNonNBATeam == 0)
+# Grab team shot data
+suns <- teams_shots(teams = "Phoenix Suns", seasons = 2022, season_types = "Playoffs")
+# Filter shot data for player & clean data to fit court dimensions
+booker_playoffs <- suns %>%
+  filter(namePlayer=="Devin Booker") %>% 
+  mutate(x = as.numeric(as.character(locationX)) / 10, y = as.numeric(as.character(locationY)) / 10 + hoop_center_y)
+# Horizontally flip the data
+booker_playoffs$x <- booker_playoffs$x * -1 
+# Filter shots by game date
+final_booker <- booker_playoffs %>% filter(dateGame == 20220419)
+```
+
+# NBA Chart Playoffs
+```{r}
+p2 <- plot_court(court_themes$light, use_short_three = F) +
+  geom_point(data = booker_playoffs, aes(x = x, y = y, color = booker_playoffs$isShotMade, fill = booker_playoffs$isShotMade), 
+             size = 1.5, shape = 21, stroke = 0.5, alpha = 0.6) +  
+  scale_color_manual(values = c("purple4","red3"), aesthetics = "color", breaks=c("TRUE", "FALSE"), labels=c("Made", "Missed")) +
+  scale_fill_manual(values = c("purple2","floralwhite"), aesthetics = "fill", breaks=c("TRUE", "FALSE"), labels=c("Made", "Missed")) +
+  scale_x_continuous(limits = c(-27.5, 27.5)) +
+  scale_y_continuous(limits = c(0, 45)) +
+  theme(plot.title = element_text(size = 22, family = "Times", face = "bold"),
+        plot.subtitle = element_text(size = 10, family = "Times", face = "bold"),
+        legend.position = c(.5, 0.85),
+        legend.direction = "horizontal",
+        legend.title = element_blank(),
+        legend.text = element_text(hjust = 1, size = 10, family = "Times", face = "bold", colour = "grey30"),
+        plot.caption = element_text(hjust = .5, size = 6, family = "Times", face = "bold", colour = "grey20", vjust = 8)) +
+  ggtitle(label = "Devin Booker",
+          subtitle = "2021-22 Playoffs \n Phoenix Suns") +
+  labs(caption = "*As of May 1, 2022 \n Data via nbastatr \n Twitter: @AndresAnalytics")
+ggdraw(p2) +
+  theme(plot.background = element_rect(fill="floralwhite", color = NA))
+ggsave("Booker_playoffs.png", height = 6, width = 6, dpi = 300)
+```
+
+# Packages
+```{r}
+library(officer)
+library(rvg)
+```
+
+```{r}
+anyplot <- dml(ggobj = p1,
+               bg = "floralwhite",
+               editable = TRUE)
+
+booker_plot <- read_pptx()
+booker_plot <- add_slide(booker_plot)
+booker_plot <- ph_with(booker_plot, anyplot, location = ph_location_fullsize())
+fileout <- "vectorgraphics.pptx"
+print(booker_plot, target = fileout)
+```
+
+
+
+
+
+
+
+
+
+

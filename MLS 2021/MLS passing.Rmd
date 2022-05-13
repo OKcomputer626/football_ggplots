@@ -1,0 +1,89 @@
+---
+title: "MLS Passes change"
+output: html_document
+date: '2022-05-12'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+```{r}
+library(worldfootballR)
+library(tidyverse)
+library(gt)
+library(paletteer)
+library(prismatic)
+```
+
+# Data 
+```{r}
+mls_2021 <- get_season_team_stats("USA", "M", 2021, "1st", "passing")
+mls_2022 <- get_season_team_stats("USA", "M", 2022, "1st", "passing")
+```
+
+# Combine Data
+```{r}
+mls_passing <- rbind(mls_2021,mls_2022)
+```
+
+# Make Table
+```{r}
+mls_passing <- mls_passing %>% 
+  filter(!str_detect(Squad, "vs")) %>%
+  select(Squad, Season_End_Year, Cmp_percent_Total) %>% 
+  pivot_wider(names_from = Season_End_Year, values_from = Cmp_percent_Total) %>%
+  drop_na() %>%
+  rename(New = "2022", Old = "2021") %>%
+  mutate(change = New - Old) %>% 
+  arrange(desc(change)) %>%
+  gt() %>%
+  tab_header(
+    title = md("**Change In Completed Passing**"),
+    subtitle = md(paste0("As of ", format(Sys.Date(), format="%B %d, %Y")))
+  ) %>% 
+  cols_label(Squad = "",
+             Old = md("2021"), 
+             New = md("2022"), 
+             change = md("Change")) %>% 
+  data_color(
+    columns = change,
+    colors = scales::col_numeric(
+      palette = paletteer::paletteer_d(
+        palette = "Redmonder::dPBIRdGn",
+        direction = 1
+      ) %>% as.character(),
+      domain = c(-10.0, 4.5), 
+      na.color = "#005C55FF"
+    )) %>% 
+  tab_style(
+    style = list(
+      cell_borders(
+        side =  "right", 
+        color = "black",
+        weight = px(1)
+      )
+    ),
+    locations = cells_body(
+      columns = New
+    )
+  ) %>%
+  fmt_percent(columns = c(Old, New, change), scale_values = FALSE, decimals = 1) %>%
+  tab_options(
+    heading.title.font.size = 20,
+    heading.subtitle.font.size = 10,
+    heading.title.font.weight = 'bold',
+    column_labels.font.size = 11,
+    column_labels.font.weight = 'bold',
+    table.font.size = 11,
+    table.font.names = "Consolas", 
+    data_row.padding = px(.5)
+  )  %>% 
+  tab_source_note(
+    source_note = md("**Source**: fbref <br> Twitter: @AndresAnalytics")
+  ) %>%
+  gtsave("MLS change in completed Passing.png")
+```
+
+

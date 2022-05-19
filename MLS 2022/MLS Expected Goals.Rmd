@@ -1,0 +1,83 @@
+---
+title: "MLS Assists 2022"
+output: html_document
+date: '2022-05-17'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+```{r}
+library(worldfootballR)
+library(tidyverse)
+library(gt)
+library(paletteer)
+library(prismatic)
+```
+
+# Data
+```{r}
+mls_2022 <- get_season_team_stats("USA", "M", 2022, "1st", "standard") 
+```
+
+# Clean Data
+```{r}
+mls_2022 <- mls_2022 %>% 
+  filter(!str_detect(Squad, "vs")) %>%
+  select(Squad, Gls, xG_Expected) %>%
+  mutate(change = Gls - xG_Expected) %>%
+  arrange(desc(change))
+```
+
+# Make Table
+```{r}
+mls_plot <- mls_2022 %>%
+  gt() %>%
+  tab_header(
+    title = md("**How valuable is each team in the MLS <br> significant towards Expected Goals?**"),
+    subtitle = md(paste0("As of ", format(Sys.Date(), format="%B %d, %Y")))
+  ) %>% 
+  cols_label(Squad = "",
+             Gls = md("Goals"), 
+             xG_Expected = md("Expected Goals"), 
+             change = md("Goals more or <br> less than expected")) %>% 
+  data_color(
+    columns = change,
+    colors = scales::col_numeric(
+      palette = paletteer::paletteer_d(
+        palette = "Redmonder::dPBIRdGn",
+        direction = 1
+      ) %>% as.character(),
+      domain = c(-7.0, 7.0), 
+      na.color = "#005C55FF"
+    )) %>% 
+  tab_style(
+    style = list(
+      cell_borders(
+        side =  "right", 
+        color = "black",
+        weight = px(1)
+      )
+    ),
+    locations = cells_body(
+      columns = xG_Expected
+    )
+  ) %>%
+  tab_options(
+    heading.title.font.size = 20,
+    heading.subtitle.font.size = 10,
+    heading.title.font.weight = 'bold',
+    column_labels.font.size = 11,
+    column_labels.font.weight = 'bold',
+    table.font.size = 11,
+    table.font.names = "Consolas", 
+    data_row.padding = px(.5)
+  )  %>% 
+  tab_source_note(
+    source_note = md("**Source**: fbref <br> Twitter: @AndresAnalytics")
+  ) %>%
+  gtsave("MLS change Assists.png")
+```
+

@@ -1,0 +1,182 @@
+---
+title: "MLS chart"
+output: html_document
+date: '2022-05-19'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Packages
+
+```{r, message=FALSE, warning=FALSE}
+pacman::p_load(tidyverse, polite, scales, ggimage, 
+               ggforce, ggtext,
+               rvest, glue, extrafont, ggrepel, magick)
+loadfonts()
+library(worldfootballR)
+```
+
+# Add_logo
+```{r}
+add_logo <- function(plot_path, logo_path, logo_position, logo_scale = 10){
+    # Requires magick R Package https://github.com/ropensci/magick
+    # Useful error message for logo position
+    if (!logo_position %in% c("top right", "top left", "bottom right", "bottom left")) {
+        stop("Error Message: Uh oh! Logo Position not recognized\n  Try: logo_positon = 'top left', 'top right', 'bottom left', or 'bottom right'")
+    }
+    # read in raw images
+    plot <- magick::image_read(plot_path)
+    logo_raw <- magick::image_read(logo_path)
+    # get dimensions of plot for scaling
+    plot_height <- magick::image_info(plot)$height
+    plot_width <- magick::image_info(plot)$width
+    # default scale to 1/10th width of plot
+    # Can change with logo_scale
+    logo <- magick::image_scale(logo_raw, as.character(plot_width/logo_scale))
+    # Get width of logo
+    logo_width <- magick::image_info(logo)$width
+    logo_height <- magick::image_info(logo)$height
+    # Set position of logo
+    # Position starts at 0,0 at top left
+    # Using 0.01 for 1% - aesthetic padding
+    if (logo_position == "top right") {
+        x_pos = plot_width - logo_width - 0.01 * plot_width
+        y_pos = 0.01 * plot_height
+    } else if (logo_position == "top left") {
+        x_pos = 0.01 * plot_width
+        y_pos = 0.01 * plot_height
+    } else if (logo_position == "bottom right") {
+        x_pos = plot_width - logo_width - 0.01 * plot_width
+        y_pos = plot_height - logo_height - 0.01 * plot_height
+    } else if (logo_position == "bottom left") {
+        x_pos = 0.01 * plot_width
+        y_pos = plot_height - logo_height - 0.01 * plot_height
+    }
+    # Compose the actual overlay
+    magick::image_composite(plot, logo, offset = paste0("+", x_pos, "+", y_pos))
+}
+```
+
+# Data
+```{r}
+league_url <- fb_league_urls(country = "USA", gender = "M",
+                                             season_end_year = 2022, tier = "1st")
+team_urls <- fb_teams_urls(league_url)
+multiple_playing_time <- fb_team_player_stats(team_urls,
+                         stat_type = "standard")
+```
+
+# Clean Data
+```{r}
+mls <- multiple_playing_time %>%
+  mutate(age = Age %>%
+           str_replace("-.*","") %>%
+           as.numeric()) %>%
+  filter(age < 23,
+         Min_Playing_Time >= 200,
+         Pos %in% c("FW","FW,MF","MF,FW","FW,DF")) %>%
+  select(Player, xG_Per_Minutes,xA_Per_Minutes)
+```
+# Calculations
+```{r}
+mls %>% 
+  summarize(avg_xG = median(xG_Per_Minutes),
+            avg_xA = median(xA_Per_Minutes))
+```
+
+# Custom Theme
+```{r}
+# Custom theme
+theme_owen <- function () { 
+  theme_minimal(base_size=11, base_family="Consolas") %+replace% 
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.background = element_rect(fill = 'floralwhite', color = "floralwhite")
+    )
+}
+
+```
+# Box write
+```{r}
+desc_jesus <- "Jesus leads the league top goal scorer in the 2022 season with 9 goals and 0.6 xG per 90 so far!"
+```
+
+# Make Chart
+```{r}
+mls_chart <- mls %>% 
+  ggplot(aes(xG_Per_Minutes,xA_Per_Minutes)) +
+  geom_point(data = mls %>%
+               filter(xG_Per_Minutes < 0.23 | xA_Per_Minutes < 0.14),
+             color = "grey20", size = 4, alpha = 0.2) +
+  geom_point(data = mls %>%
+               filter(xG_Per_Minutes > 0.23 | xA_Per_Minutes > 0.14),
+             color = "red", size = 4) +
+  geom_hline(yintercept = 0.14, color = "red", alpha = 0.6) +
+  geom_vline(xintercept = 0.23, color = "red", alpha = 0.6) +
+  geom_text_repel(
+    data = mls %>%
+      filter(xG_Per_Minutes > 0.23 | xA_Per_Minutes > 0.14,
+             !Player %in% c("Jesus Ferreira")),
+    aes(label = Player, family = "Times", fontface = "bold"), 
+    seed = 15, size = 3.5, 
+    min.segment.length = 0, segment.color = "red",
+    point.padding = 0.5) +
+  geom_mark_circle(
+    aes(filter = Player == "Jesus Ferreira",
+        label = "Stop sleeping on Jesus Ferreira",
+        description = desc_jesus),
+    label.width = unit(60, 'mm'), label.buffer = unit(5, "mm"),
+    label.family = "Times", label.fontsize = c(14, 12), label.fill = "floralwhite",
+    label.colour = c("#337DEF", "black")) +
+    annotate("text", family = "Times", fontface = "bold",
+           x = 0.235 , y = 0.60, hjust = 0, color = "red",
+           label = "Average xG per 90: 0.23") +
+    annotate("text", family = "Times", fontface = "bold",
+           x = 0.70, y = 0.15, color = "red",
+           label = "Average xA per 90: 0.14") +
+  scale_x_continuous(labels = seq(0, 0.9, 0.1), 
+                     breaks = seq(0, 0.9, 0.1),
+                     limits = c(0, 0.80)) +
+  scale_y_continuous(labels = seq(0, 0.9, 0.1), 
+                     breaks = seq(0, 0.9, 0.1),
+                     limits = c(0, 0.6)) +
+  labs(title = "Major League Soccer: Best Scorers and Creators", 
+       subtitle = "Under 23 Attackers in the MLS: Expected Goals vs. Expected Assists \n (Mininum 200 minutes of playing time) as of May 20th, 2022",
+       caption = "Data: FBref | StatsBomb \n Andres Gonzalez, Twitter: @AndresAnalytics",
+       x = "Expected Goals (xG) per 90",
+       y = "Expected Assists (xA) per 90") +
+  theme_owen() +
+  theme(text = element_text(family = "Times"),
+        plot.title = element_text(size = 18, face = "bold"),
+        plot.subtitle = element_text(size = 16),
+        plot.caption = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        panel.grid.minor.x = element_blank())
+mls_chart
+
+```
+# Save
+
+```{r}
+ggsave(plot = mls_chart, 
+       here::here("mls_chart.png"),
+       height = 10, width = 12)
+```
+
+```{r}
+plot_logo <- add_logo(
+  plot_path = here::here("mls_chart.png"),
+  logo_path = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/MLS_crest_logo_RGB_gradient.svg/800px-MLS_crest_logo_RGB_gradient.svg.png",
+  logo_position = "top right",
+  logo_scale = 10)
+plot_logo
+```
+
+```{r}
+image_write(image = plot_logo, 
+            here::here("mls_chart_logo.png"))
+```
+

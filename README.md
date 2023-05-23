@@ -9,6 +9,10 @@
 
 ## Visualization Plots
 
+## Liga MX 
+#### Plot
+![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Chivas%20De%20Guadalajara%20Expected%20Goals%20For%20and%20Against.png)
+
 ## Premier League Icons
 #### Plot
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Premier%20League%20Icons/Output/Thierry%20Henry%20Goals%20and%20Assists.png)

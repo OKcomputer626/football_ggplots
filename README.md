@@ -17,6 +17,9 @@
 #### Top Two Goal Scorers in Each Team Clausura 2023
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Two%20Goal%20Scorers%20in%20Each%20Team%20Liga%20MX.png)
 
+#### Dribbling Clausura 2023
+![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Dribbling%20Clausura%202023-Liga%20MX.png)
+
 #### Plot
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Chivas%20De%20Guadalajara%20Expected%20Goals%20For%20and%20Against.png)
 

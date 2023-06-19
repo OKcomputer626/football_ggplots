@@ -9,14 +9,18 @@
 
 ## Visualization Plots
 
-## Liga MX 
+### Liga MX 
+
+#### Liga MX Apertura and Clausura 2022-2023
+![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Liga%20MX%20Apertura%20and%20Clausura%202022-2023.png)
+
 #### Plot
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Chivas%20De%20Guadalajara%20Expected%20Goals%20For%20and%20Against.png)
 
 #### Expected Goals Comparison
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Liga%20MX%20Clausura%202023%20xG%20and%20Actual%20Goals.png)
 
-## Premier League Icons
+### Premier League Icons
 #### Plot
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Premier%20League%20Icons/Output/Thierry%20Henry%20Goals%20and%20Assists.png)
 

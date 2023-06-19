@@ -14,7 +14,7 @@
 #### Liga MX Apertura and Clausura 2022-2023
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Liga%20MX%20Apertura%20and%20Clausura%202022-2023.png)
 
-#### Two Goal Scorers in Each Team Clausura 2023
+#### Top Two Goal Scorers in Each Team Clausura 2023
 ![alt text](https://raw.githubusercontent.com/OKcomputer626/football_ggplots/main/Liga%20MX/Output/Two%20Goal%20Scorers%20in%20Each%20Team%20Liga%20MX.png)
 
 #### Plot
